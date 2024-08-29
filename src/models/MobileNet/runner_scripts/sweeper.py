@@ -5,9 +5,6 @@ from multiprocessing import Pool
 from typing import Dict, Any
 from trainer import train, PROJECT_NAME, load_config
 
-# NUM_PARALLEL = 3
-
-
 def sweep_train():
     wandb.init(project=PROJECT_NAME)
     train(wandb.config, sweep_run=True, serialize_final=True)
@@ -25,12 +22,9 @@ def run_sweep(sweep_config: Dict[str, Any]):
 
     total_runs = sweep_config["count"]
 
-    # for _ in range(NUM_PARALLEL):
     wandb.agent(sweep_id, function=sweep_train, count=total_runs)
 
 
 if __name__ == "__main__":
-    # sweep_config = load_config('config/sweep/dummy_test.yaml')
-    # sweep_config = load_config('config/sweep/one_cycle.yaml')
     sweep_config = load_config("config/sweep/sweep_optimal_only_freeze.yaml")
     run_sweep(sweep_config)

@@ -100,18 +100,5 @@ def load_model(path: str = "model_checkpoint.pth") -> AgeGenderClassifier:
 if __name__ == "__main__":
     wandb.finish()
 
-    # config = load_config("config/model/dynamic_aug_debug.yaml")
-    # train(config, serialize_final=True)
-    #
-    #
-    # config = load_config('config/model/swept-sweep-34_improved_only_valid.yaml')
-    # train(config, serialize_final=True)
-    #
-
-    # config = load_config('config/model/swept-sweep-34_improved_DYNAMIC_AUG+mobile_net_large.yaml')
-    # config = load_config('config/model/swept-sweep-34_improved_DYNAMIC_AUG_v3_large.yaml')
-    # train(config, serialize_final=True)
-    # config = load_config('config/model/no_weights_swept-sweep-34_improved_DYNAMIC_AUG.yaml')
-    # train(config, serialize_final=True)
     config = load_config("config/model/dynamic_aug_debug.yaml")
     train(config, serialize_final=True)

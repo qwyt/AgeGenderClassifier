@@ -6,7 +6,7 @@ import yaml
 import wandb
 from typing import Dict, Any
 
-import draft.models.MobileNet.runner_scripts.trainer as trainer
+import src.models.MobileNet.runner_scripts.trainer as trainer
 
 PREFIX = "select_transforms"
 

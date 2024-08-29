@@ -29,9 +29,9 @@ Our best-performing models achieved the following results:
 | **MobileNetV3.Small** | aug. based oversampling`3`          | 0.939       | 4.731       | 
 | MobileNetV3.Small     | no weights* + aug. oversampling     | 0.926       | 5.148       |
 
-`2. [v1-Base-Model](https://api.wandb.ai/links/qqwy/murofq6i)`
-`3. [v2-Improved-Model](https://api.wandb.ai/links/qqwy/ndg6x702)`
-`* trained from scratch, others MobileNetV3 small models are using `IMAGENET1K_V1` weights`
+`2.` [v1-Base-Model](https://api.wandb.ai/links/qqwy/murofq6i)
+`3.` [v2-Improved-Model](https://api.wandb.ai/links/qqwy/ndg6x702)
+`*` trained from scratch, others MobileNetV3 small models are using `IMAGENET1K_V1` weights
 
 We've been able to achieve very high performance to some selected baseline models (trained and evaluated with the UTK dataset)*:
 
@@ -44,8 +44,8 @@ We've been able to achieve very high performance to some selected baseline model
 | ResNet50_f            | (VGGFace2)             | 0.944       | 4.65    |   |
 | SENet50_f             | (VGGFace2)             | 0.949       | 4.58    |   |
 
-*Sheoran, V., et al. (2021). Age and Gender Prediction using Deep CNNs and Transfer Learning.
-arXiv. https://arxiv.org/pdf/2110.12633
+`*Sheoran, V., et al. (2021). Age and Gender Prediction using Deep CNNs and Transfer Learning.
+arXiv. https://arxiv.org/pdf/2110.12633`
 
 ### Performance Summary:
 
@@ -84,13 +84,13 @@ Key findings:
 
 `(most important ones to see:)`
 
-- [src/models/MobileNet/classifier.py](https://github.com/TuringCollegeSubmissions/ppuodz-DL.3.5/blob/master/src/models/MobileNet/classifier.py)
+- [src/models/MobileNet/classifier.py](https://github.com/qwyt/mobilenet_age_gender_classifier/blob/master/src/models/MobileNet/classifier.py)
     - Pytorch Lighting Module
 
-- [src/models/MobileNet/data_defs.py](https://github.com/TuringCollegeSubmissions/ppuodz-DL.3.5/blob/master/src/models/MobileNet/data_defs.py)
+- [src/models/MobileNet/data_defs.py](https://github.com/qwyt/mobilenet_age_gender_classifier/blob/master/src/models/MobileNet/data_defs.py)
     - Dataset/Datmodule implementation
 
-- [src/models/MobileNet/metrics.py](https://github.com/TuringCollegeSubmissions/ppuodz-DL.3.5/blob/master/src/models/MobileNet/metrics.py)
+- [src/models/MobileNet/metrics.py](https://github.com/qwyt/mobilenet_age_gender_classifier/blob/master/src/models/MobileNet/metrics.py)
     - Main metrics/evaluation functions
 
 - [Individual experiment and Sweep configurations](https://github.com/TuringCollegeSubmissions/ppuodz-DL.3.5/tree/master/config)
