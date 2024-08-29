@@ -1,51 +1,43 @@
-import optuna
-from fastai.vision.all import *
-from jinja2 import UndefinedError
-from sklearn.utils.class_weight import compute_class_weight
-import numpy as np
-import pandas as pd
-import gc
-from enum import Enum, auto
-import pytorch_lightning as pl
-import torchvision.transforms as transforms
-import logging
+"""
+This module implements an Age and Gender Classifier using PyTorch Lightning.
+It includes custom callbacks, learning rate schedulers, and a prediction function.
+"""
 
-from torch.utils.data import Dataset
-from torchmetrics import Accuracy, MeanAbsoluteError
-
-from pytorch_lightning import LightningDataModule
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torchvision import transforms
-
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
-from PIL import Image
+from torchvision import models
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import Callback
+from torchmetrics import Accuracy, MeanAbsoluteError
 from tqdm import tqdm
-
+import numpy as np
 from src.models.MobileNet.data_defs import AgeGenderDataModule
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from typing import Dict, Any, List, Tuple, Optional
 
 torch.backends.cudnn.benchmark = True
 
 
 class ProgressBarToggleCallback(Callback):
-    def on_train_start(self, trainer, pl_module):
+    """Toggles the progress bar on for training and off for other phases."""
+
+    def on_train_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         trainer.enable_progress_bar = True  # Enable for training
 
-    def on_train_end(self, trainer, pl_module):
+    def on_train_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         trainer.enable_progress_bar = False  # Disable after training
 
 
 class OneCycleWithDecay(torch.optim.lr_scheduler.OneCycleLR):
-    def __init__(self, optimizer, decay_factor=1.01, *args, **kwargs):
+    """One Cycle learning rate scheduler with decay after cycle completion."""
+
+    def __init__(self, optimizer: torch.optim.Optimizer, decay_factor: float = 1.01, *args: Any, **kwargs: Any) -> None:
         super().__init__(optimizer, *args, **kwargs)
         self.decay_factor = decay_factor
 
-    def get_lr(self):
-
-        def _calc_lr(g_lr):
+    def get_lr(self) -> List[float]:
+        def _calc_lr(g_lr: float) -> float:
             new_lr = g_lr * self.decay_factor
             if new_lr > 0.001:
                 return 0.001
@@ -55,7 +47,7 @@ class OneCycleWithDecay(torch.optim.lr_scheduler.OneCycleLR):
             return super().get_lr()
         return [_calc_lr(group["lr"]) for group in self.optimizer.param_groups]
 
-    def step(self, epoch=None):
+    def step(self, epoch: Optional[int] = None) -> None:
         if self.last_epoch >= self.total_steps:
             self.last_epoch += 1
             for param_group, lr in zip(self.optimizer.param_groups, self.get_lr()):
@@ -63,18 +55,20 @@ class OneCycleWithDecay(torch.optim.lr_scheduler.OneCycleLR):
         else:
             super().step(epoch)
 
-    def state_dict(self):
+    def state_dict(self) -> Dict[str, Any]:
         state_dict = super().state_dict()
         state_dict["decay_factor"] = self.decay_factor
         return state_dict
 
-    def load_state_dict(self, state_dict):
+    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
         self.decay_factor = state_dict.pop("decay_factor")
         super().load_state_dict(state_dict)
 
 
 class AgeGenderClassifier(pl.LightningModule):
-    def __init__(self, config):
+    """PyTorch Lightning module for age and gender classification."""
+
+    def __init__(self, config: Dict[str, Any]) -> None:
         super().__init__()
         self.config = config
         self._initialize_model()
@@ -84,7 +78,8 @@ class AgeGenderClassifier(pl.LightningModule):
         self.train_gender_accuracy = Accuracy(task="binary")
         self.age_mae = MeanAbsoluteError()
 
-    def get_param(self, key, default=None):
+    def get_param(self, key: str, default: Any = None) -> Any:
+        """Safely get a parameter from the config."""
         if key not in self.config:
             if default is None:
                 raise ValueError(
@@ -93,13 +88,15 @@ class AgeGenderClassifier(pl.LightningModule):
             return default
         return self.config[key]
 
-    def check_freeze_base_model(self):
+    def check_freeze_base_model(self) -> None:
+        """Freeze the base model if specified in config."""
         if self.get_param("freeze_epochs") > 0:
             print(f'Freezing base model for: {self.get_param("freeze_epochs")}')
             for param in self.base_model.parameters():
                 param.requires_grad = False
 
-    def check_unfreeze_base_model(self):
+    def check_unfreeze_base_model(self) -> None:
+        """Unfreeze the base model after specified epochs."""
         if self.current_epoch == self.get_param("freeze_epochs"):
             print(
                 f"Unfreezing base model:\n  after self.current_epoch({self.current_epoch}) == self.get_param('freeze_epochs')({self.get_param('freeze_epochs')})"
@@ -107,7 +104,8 @@ class AgeGenderClassifier(pl.LightningModule):
             for param in self.base_model.parameters():
                 param.requires_grad = True
 
-    def _initialize_model(self):
+    def _initialize_model(self) -> None:
+        """Initialize the model architecture based on config."""
         model_type = self.get_param("model_type")
         pretrained = self.get_param("pretrained", True)
 
@@ -124,16 +122,13 @@ class AgeGenderClassifier(pl.LightningModule):
             raise ValueError(f"Unsupported model type: {model_type}")
 
         if "mobilenet" in model_type:
-
             if hasattr(self.base_model, "classifier"):
                 if isinstance(self.base_model.classifier, nn.Sequential):
                     num_features = self.base_model.classifier[0].in_features
                 else:
                     num_features = self.base_model.classifier.in_features
             else:
-                num_features = (
-                    self.base_model.last_channel
-                )  # Fallback if classifier is not present
+                num_features = self.base_model.last_channel  # Fallback if classifier is not present
 
             self.base_model = nn.Sequential(*list(self.base_model.children())[:-1])
 
@@ -156,18 +151,19 @@ class AgeGenderClassifier(pl.LightningModule):
 
         self.check_freeze_base_model()
 
-        dropout = self.get_param("dropout", 0)
+        if dropout_rate > 0:
+            self.dropout = nn.Dropout(p=dropout_rate)
 
-        if dropout > 0:
-            self.dropout = nn.Dropout(p=self.get_param("dropout"))
-
-    def on_train_epoch_start(self):
+    def on_train_epoch_start(self) -> None:
+        """Check if base model should be unfrozen at the start of each epoch."""
         self.check_unfreeze_base_model()
 
-    def on_train_epoch_end(self):
+    def on_train_epoch_end(self) -> None:
+        """Placeholder for any end-of-epoch operations."""
         pass
 
-    def test_step(self, batch, batch_idx):
+    def test_step(self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Any, Any], batch_idx: int) -> Dict[str, torch.Tensor]:
+        """Perform a test step."""
         x, age, gender, _, _ = batch
         gender_pred, age_pred = self(x)
 
@@ -178,17 +174,20 @@ class AgeGenderClassifier(pl.LightningModule):
             "true_age": age,
         }
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass through the model."""
         features = self.base_model(x)
         features = self.global_pool(features).view(x.size(0), -1)
         gender_output = self.gender_classifier(features)
         age_output = self.age_regressor(features).squeeze(1)
         return gender_output, age_output
 
-    def get_current_lr(self):
+    def get_current_lr(self) -> float:
+        """Get the current learning rate."""
         return self.optimizers().param_groups[0]["lr"]
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Any, Any], batch_idx: int) -> torch.Tensor:
+        """Perform a training step."""
         current_lr = self.get_current_lr()
         self.log("step_LR", current_lr, on_step=True, on_epoch=False, prog_bar=True)
 
@@ -237,7 +236,8 @@ class AgeGenderClassifier(pl.LightningModule):
 
         return total_loss
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Any, Any], batch_idx: int) -> torch.Tensor:
+        """Perform a validation step."""
         x, age, gender, _, _ = batch
         gender_pred, age_pred = self(x)
 
@@ -266,7 +266,8 @@ class AgeGenderClassifier(pl.LightningModule):
 
         return total_loss
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> Dict[str, Any]:
+        """Configure optimizers and learning rate schedulers."""
         optimizer = torch.optim.AdamW(
             self.parameters(),
             lr=self.get_param("base_lr"),
@@ -346,6 +347,17 @@ class AgeGenderClassifier(pl.LightningModule):
 def predict_with_model(
     model: AgeGenderClassifier, datamodule: AgeGenderDataModule, batch_size: int = 32
 ) -> Dict[str, np.ndarray]:
+    """
+    Generate predictions using the trained model.
+
+    Args:
+        model (AgeGenderClassifier): The trained model.
+        datamodule (AgeGenderDataModule): The data module containing the test dataset.
+        batch_size (int): Batch size for predictions.
+
+    Returns:
+        Dict[str, np.ndarray]: Dictionary containing predictions and true values.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.eval()

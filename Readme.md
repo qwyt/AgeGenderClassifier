@@ -3,24 +3,20 @@
 ## Project Overview
 
 The goal of this project is to build an age and gender classification model trained on
-the [UTKFace](https://susanqq.github.io/UTKFace/) dataset.
+the [UTKFace](https://susanqq.github.io/UTKFace/) dataset. 
 
 ## Key Highlights
 
-- **MobileNetV3.Small:** Our goal was to use a model with (relatively) simple architecture and small size and
-  try to make it competitive with significantly larger and computationally intensive models like VGG or ResNet mainly by
+- **MobileNetV3.Small:** Instead of using a large, complex model, we've chosen to use a very small model with (relatively) simple architecture and to
+  and make it competitive with significantly larger and computationally intensive models like VGG or ResNet mainly by
   focusing on optimizing the preprocessing pipeline and the loss function.
 
-- **Training Process:** Extensive hyperparameter tuning and experiment tracking to determine the most robust configuration.
+- **Training Process:** Extensive hyperparameter tuning and experiment tracking using [Weights & Biases](https://wandb.ai/site)  to determine the most robust configuration
 
 - **Iterative Approach:** We've used an iterative approach by first building a model that was tuned to maximize overall
-  gender and age prediction accuracy. After identifying the subsets of the dataset the model performed poorly only (
-  underrepresented age groups, specific combinations of gender and skin color etc.) we've augmentation based
-  oversampling and tweaked various transformations to reduce biases in our model.
-  
-- **Evaluation:** Comprehensive evaluation was performed across various splits of the dataset over gender/age prediction
-  accuracy over specific age bins, (heuristically estimated) subject skin tones, image quality etc. to identify that
-  main weaknesses of our model.
+  gender and age prediction accuracy. After identifying the subsets of the dataset where the model performed poorly (underrepresented age groups, specific combinations of gender and skin color etc.) we've used these insights to build augmentation based
+  oversampling strategy that significantly improved performance for underrepresented groups with minimal impact on accuracy for the rest of the sample.
+- **Evaluation:** Comprehensive evaluation of results was performed both across sub-samples (based on age groups, skin color and other attributes) and on an individual basis using [LIME](https://github.com/marcotcr/lime).
 
 ## Performance Overview
 
@@ -33,15 +29,11 @@ Our best-performing models achieved the following results:
 | **MobileNetV3.Small** | aug. based oversampling`3`          | 0.939       | 4.731       | 
 | MobileNetV3.Small     | no weights* + aug. oversampling     | 0.926       | 5.148       |
 
-##### More Details:
+`2. [v1-Base-Model](https://api.wandb.ai/links/qqwy/murofq6i)`
+`3. [v2-Improved-Model](https://api.wandb.ai/links/qqwy/ndg6x702)`
+`* trained from scratch, others MobileNetV3 small models are using `IMAGENET1K_V1` weights`
 
-2. [v1-Base-Model](https://api.wandb.ai/links/qqwy/murofq6i)
-
-3. [v2-Improved-Model](https://api.wandb.ai/links/qqwy/ndg6x702)
-
-* trained from scratch, others MobileNetV3 small models are using `IMAGENET1K_V1` weights
-
-Compared to selected baseline models*:
+We've been able to achieve very high performance to some selected baseline models (trained and evaluated with the UTK dataset)*:
 
 | Model                 | notes                  | Gender Acc. | Age MAE | * |
 |-----------------------|------------------------|-------------|---------|---|
@@ -73,7 +65,8 @@ Key findings:
 
 ### Structure / Table of Contents:
 
-- [1.0_EDA](https://qwyt.github.io/TR_M4_S3_Publish/1.0_EDA.html) ([with code](https://qwyt.github.io/TR_M4_S3_Publish/1.0_EDA_with_code.html))
+- [1.0_Data_Analysis](https://qwyt.github.io/TR_M4_S3_Publish/1.0_EDA.html) ([with code](https://qwyt.github.io/TR_M4_S3_Publish/1.0_EDA_with_code.html))
+    - Analyzing various image aspects like color variance, luminance, quality etc. using various approaches like BRISQUE, FFT, Laplacian variance etc. to determine sub samples/bins that could be used for evaluation. 
 
 - [2.0_Preprocessing and Hyperparameter Tuning](https://qwyt.github.io/TR_M4_S3_Publish/2.0_Preprocessing_and_Hyperparameter_Tuning.html) ([with code](https://qwyt.github.io/TR_M4_S3_Publish/2.0_Preprocessing_and_Hyperparameter_Tuning_with_code.html):
     - Overall model structure and component/parameter selection
@@ -110,6 +103,7 @@ The model was trained and fine-tuned using the [UTKFace](https://susanqq.github.
 
 Dataset split:
 - 80% (18,956 images) training set
+    - hyperparameter tuning was done using a 20% validation subsample
 - 20% (4,740 images) test set
 
 The training set was further split into 80% training and 20% validation during hyperparameter tuning. The final models were  trained on the full training set.
@@ -117,13 +111,13 @@ The training set was further split into 80% training and 20% validation during h
 Key characteristics:
 - Age range: 0 to 116 years
 - Gender: Binary classification (male/female)
-- Relaitvley diverse ethnic representation
+- Relatively diverse ethnic representation
 - Varying image quality and lighting conditions
 
 ## Model Architecture
 
 - Base model: MobileNetV3-Small
-- Pretrained weights: IMAGENET1K_V1
+- Pretrained weights: `IMAGENET1K_V1`
 - Custom classifier layers:
   - Global Average Pooling
   - Two heads with dropout and L1 regularization:
@@ -135,7 +129,7 @@ Key characteristics:
 
 
 ## Training Pipeline
-:
+
 1. Dynamic data augmentation
 2. Weighted augmentation-based oversampling
    - Generated additional samples for underrepresented age groups
@@ -146,41 +140,4 @@ Key characteristics:
 5. Mixed precision training
 6. Batch size: 256
 7. Number of epochs: 15-20
-
-
-## Challenges and Future Improvements
-
-Challenges:
-1. Mislabeled or ambiguous samples in the dataset
-2. Limited performance on very young age groups (0-4 years)
-3. Balancing augmentation to avoid introducing artificial biases
-
-Future improvements:
-1. Implement additional preprocessing to exclude invalid or poor-quality images
-2. Explore more sophisticated augmentation techniques for underrepresented groups
-3. Investigate the use of a continuous scale for gender prediction instead of binary classification
-4. Develop separate models or ensemble methods for challenging age groups
-5. Incorporate additional datasets to improve diversity and reduce biases
-
-## Ethical Considerations
-
-1. Potential bias in predictions:
-   - The model may exhibit varying performance across different ethnic groups or age ranges due to dataset imbalances.
-   - Continuous monitoring and adjustment are necessary to ensure fair performance across all demographics.
-
-2. Privacy concerns:
-   - Facial image processing raises important privacy issues, especially when dealing with personal data.
-   - Strict data handling and anonymization protocols should be implemented in any real-world application.
-
-3. Potential for misuse:
-   - Age and gender classification models could be misused for surveillance or discriminatory purposes.
-   - Clear guidelines and restrictions on the model's use should be established to prevent unethical applications.
-
-4. Limitations of binary gender classification:
-   - The current model uses binary gender classification, which may not accurately represent the full spectrum of gender identities.
-   - Future work should explore more inclusive approaches to gender classification or consider whether gender prediction is necessary for the intended application.
-
-5. Transparency and explainability:
-   - The decision-making process of deep learning models can be opaque, raising concerns about accountability.
-   - Efforts should be made to improve model interpretability and provide clear explanations of predictions when possible.
 

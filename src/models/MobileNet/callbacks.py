@@ -2,7 +2,6 @@ import torch
 from pytorch_lightning import Callback
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
-
 class EarlyStoppingCB(EarlyStopping):
     def on_train_end(self, trainer, pl_module):
         if self.stopped_epoch > 0:
